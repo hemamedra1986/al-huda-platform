@@ -204,7 +204,7 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettingsRecord = {
     disabledPaths: [],
   },
   adminAccess: {
-    password: "admin123",
+    password: "",
   },
 };
 

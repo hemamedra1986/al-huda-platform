@@ -666,7 +666,7 @@ export default function AdminPanelPage() {
             type="password"
             value={newAdminPassword}
             onChange={(event) => setNewAdminPassword(event.target.value)}
-            placeholder="مثال: admin123"
+            placeholder="كلمة مرور قوية جديدة"
             style={{ padding: "9px", borderRadius: "8px", border: "1px solid #ddd" }}
           />
         </label>
