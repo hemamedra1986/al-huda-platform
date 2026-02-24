@@ -1,0 +1,9 @@
+---
+id: 1
+state: "open"
+title: "Pull Request Title"
+description: "Description of the pull request"
+user: "hemamedra1986"
+labels: ["ready for review"]
+---
+Content after changing from draft to ready for review.
