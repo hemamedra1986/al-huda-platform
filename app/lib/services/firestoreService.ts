@@ -462,6 +462,62 @@ export async function saveBooking(data: AppBookingInput) {
   });
 }
 
+export interface VoiceCallRecord {
+  id: string;
+  userId: string;
+  roomName: string;
+  roomDescription: string;
+  status: "waiting" | "active" | "ended";
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export async function createVoiceCallNotification(data: {
+  userId: string;
+  roomName: string;
+  roomDescription: string;
+}) {
+  ensureFirestoreReady();
+  return addDoc(collection(db!, "voiceCalls"), {
+    ...data,
+    status: "waiting",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function updateVoiceCallStatus(
+  callId: string,
+  status: "waiting" | "active" | "ended",
+) {
+  ensureFirestoreReady();
+  const callRef = doc(db!, "voiceCalls", callId);
+  await updateDoc(callRef, {
+    status,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export function subscribeToVoiceCallsForAdmin(
+  callback: (calls: VoiceCallRecord[]) => void,
+) {
+  ensureFirestoreReady();
+  const callsRef = collection(db!, "voiceCalls");
+  const callsQuery = query(
+    callsRef,
+    where("status", "in", ["waiting", "active"]),
+    orderBy("createdAt", "desc"),
+  );
+
+  return onSnapshot(callsQuery, (snapshot) => {
+    const calls = snapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...(docSnap.data() as Omit<VoiceCallRecord, "id">),
+    }));
+    callback(calls);
+  });
+}
+
 function mergePlatformSettings(
   incoming: Partial<PlatformSettingsRecord> | undefined,
 ): PlatformSettingsRecord {

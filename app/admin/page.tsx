@@ -13,6 +13,7 @@ import {
   ChatMessageRecord,
   PlatformMediaItem,
   PlatformSettingsRecord,
+  VoiceCallRecord,
   markUserMessagesAsReplied,
   grantPaidConsultationAccessByAdmin,
   saveMessage,
@@ -21,10 +22,12 @@ import {
   subscribeToOrdersForAdmin,
   subscribeToPlatformSettings,
   subscribeToUsersForAdmin,
+  subscribeToVoiceCallsForAdmin,
   updateOrderStatus,
+  updateVoiceCallStatus,
 } from "@/app/lib/services/firestoreService";
 
-type Tab = "users" | "messages" | "payments" | "platform";
+type Tab = "users" | "messages" | "payments" | "platform" | "voicecalls";
 
 export default function AdminPanelPage() {
   const [authorized] = useState(true);
@@ -34,6 +37,7 @@ export default function AdminPanelPage() {
   const [users, setUsers] = useState<AdminUserRecord[]>([]);
   const [messages, setMessages] = useState<ChatMessageRecord[]>([]);
   const [orders, setOrders] = useState<AdminOrderRecord[]>([]);
+  const [voiceCalls, setVoiceCalls] = useState<VoiceCallRecord[]>([]);
 
   const [selectedUserId, setSelectedUserId] = useState("");
   const [replyText, setReplyText] = useState("");
@@ -78,6 +82,16 @@ export default function AdminPanelPage() {
     });
 
     return () => unsubscribeSettings();
+  }, [authorized]);
+
+  useEffect(() => {
+    if (!authorized) return;
+    try {
+      const unsubscribeVoiceCalls = subscribeToVoiceCallsForAdmin((calls) => setVoiceCalls(calls));
+      return () => unsubscribeVoiceCalls();
+    } catch {
+      // Firebase may not be configured; ignore
+    }
   }, [authorized]);
 
   const filteredMessages = useMemo(() => {
@@ -447,6 +461,42 @@ export default function AdminPanelPage() {
     </section>
   );
 
+  const renderVoiceCallsTab = () => (
+    <section style={{ backgroundColor: "white", borderRadius: "10px", padding: "16px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", display: "grid", gap: "14px" }}>
+      <h2 style={{ marginTop: 0, color: "#1a3a52" }}>📞 المكالمات الصوتية الواردة</h2>
+      {voiceCalls.length === 0 ? (
+        <p style={{ color: "#666" }}>لا توجد مكالمات صوتية نشطة أو في الانتظار.</p>
+      ) : (
+        <div style={{ display: "grid", gap: "10px" }}>
+          {voiceCalls.map((call) => (
+            <div key={call.id} style={{ border: call.status === "waiting" ? "2px solid #e74c3c" : "1px solid #ddd", borderRadius: "8px", padding: "12px", backgroundColor: call.status === "waiting" ? "#fff5f5" : "#f9f9f9" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+                <div>
+                  <strong style={{ color: "#1a3a52" }}>{call.roomName}</strong>
+                  <div style={{ fontSize: "13px", color: "#666", marginTop: "4px" }}>{call.roomDescription}</div>
+                  <div style={{ fontSize: "12px", color: "#999", marginTop: "4px" }}>المستخدم: {call.userId}</div>
+                </div>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <span style={{ fontSize: "12px", fontWeight: "bold", color: call.status === "waiting" ? "#e74c3c" : "#27ae60", backgroundColor: call.status === "waiting" ? "#fde8e8" : "#e8f5e9", padding: "4px 8px", borderRadius: "4px" }}>
+                    {call.status === "waiting" ? "⏳ في الانتظار" : "✅ نشطة"}
+                  </span>
+                  <button
+                    onClick={async () => {
+                      try { await updateVoiceCallStatus(call.id, "ended"); } catch {}
+                    }}
+                    style={{ border: "1px solid #666", color: "#666", borderRadius: "6px", padding: "6px 10px", cursor: "pointer", fontSize: "12px" }}
+                  >
+                    إنهاء
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+
   const renderPlatformTab = () => (
     <section style={{ backgroundColor: "white", borderRadius: "10px", padding: "16px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", display: "grid", gap: "14px" }}>
       <h2 style={{ marginTop: 0, color: "#1a3a52" }}>إعدادات وصلاحيات المنصة</h2>
@@ -767,12 +817,17 @@ export default function AdminPanelPage() {
                   <button onClick={() => setTab("users")} style={{ border: tab === "users" ? "2px solid #1a3a52" : "1px solid #ddd", backgroundColor: tab === "users" ? "#eef4ff" : "white", borderRadius: "8px", padding: "8px 12px", cursor: "pointer", fontWeight: "bold" }}>المستخدمين</button>
                   <button onClick={() => setTab("messages")} style={{ border: tab === "messages" ? "2px solid #1a3a52" : "1px solid #ddd", backgroundColor: tab === "messages" ? "#eef4ff" : "white", borderRadius: "8px", padding: "8px 12px", cursor: "pointer", fontWeight: "bold" }}>الرسائل</button>
                   <button onClick={() => setTab("payments")} style={{ border: tab === "payments" ? "2px solid #1a3a52" : "1px solid #ddd", backgroundColor: tab === "payments" ? "#eef4ff" : "white", borderRadius: "8px", padding: "8px 12px", cursor: "pointer", fontWeight: "bold" }}>المدفوعات</button>
+                  <button onClick={() => setTab("voicecalls")} style={{ border: tab === "voicecalls" ? "2px solid #1a3a52" : "1px solid #ddd", backgroundColor: tab === "voicecalls" ? "#eef4ff" : "white", borderRadius: "8px", padding: "8px 12px", cursor: "pointer", fontWeight: "bold", position: "relative" }}>
+                    📞 المكالمات الصوتية
+                    {voiceCalls.length > 0 ? <span style={{ position: "absolute", top: "-6px", right: "-6px", backgroundColor: "#e74c3c", color: "white", borderRadius: "50%", width: "18px", height: "18px", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center" }}>{voiceCalls.length}</span> : null}
+                  </button>
                   <button onClick={() => setTab("platform")} style={{ border: tab === "platform" ? "2px solid #1a3a52" : "1px solid #ddd", backgroundColor: tab === "platform" ? "#eef4ff" : "white", borderRadius: "8px", padding: "8px 12px", cursor: "pointer", fontWeight: "bold" }}>إعدادات المنصة</button>
                 </div>
 
                 {tab === "users" ? renderUsersTab() : null}
                 {tab === "messages" ? renderMessagesTab() : null}
                 {tab === "payments" ? renderPaymentsTab() : null}
+                {tab === "voicecalls" ? renderVoiceCallsTab() : null}
                 {tab === "platform" ? renderPlatformTab() : null}
 
                 {error ? <p style={{ color: "#b00020", margin: 0 }}>{error}</p> : null}

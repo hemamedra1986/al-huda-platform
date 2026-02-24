@@ -18,28 +18,57 @@ service cloud.firestore {
     }
 
     match /messages/{messageId} {
-      allow create: if request.auth != null && (
-        isAdmin() || request.resource.data.userId == request.auth.uid
-      );
+      // Allow authenticated users or guest users (unauthenticated) to create messages
+      allow create: if isAdmin() ||
+        (request.auth != null && request.resource.data.userId == request.auth.uid) ||
+        (request.auth == null && request.resource.data.userId is string && request.resource.data.userId.size() > 0);
       allow read: if isAdmin() || (
         request.auth != null && resource.data.userId == request.auth.uid
+      ) || (
+        // Guest users can read their own messages using userId in query
+        request.auth == null && resource.data.userId is string
       );
       allow update: if isAdmin();
       allow delete: if false;
     }
 
     match /orders/{orderId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // Allow authenticated or guest users to create orders
+      allow create: if (request.auth != null && request.resource.data.userId == request.auth.uid) ||
+        (request.auth == null && request.resource.data.userId is string && request.resource.data.userId.size() > 0);
       allow read: if isAdmin() || (request.auth != null && resource.data.userId == request.auth.uid);
       allow update: if isAdmin();
       allow delete: if false;
     }
 
     match /bookings/{bookingId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // Allow authenticated or guest users to create bookings
+      allow create: if (request.auth != null && request.resource.data.userId == request.auth.uid) ||
+        (request.auth == null && request.resource.data.userId is string && request.resource.data.userId.size() > 0);
       allow read: if isAdmin() || (request.auth != null && resource.data.userId == request.auth.uid);
-      allow update: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow update: if (request.auth != null && resource.data.userId == request.auth.uid) || isAdmin();
       allow delete: if false;
+    }
+
+    match /voiceCalls/{callId} {
+      // Any user (authenticated or guest) can create a voice call notification
+      allow create: if request.resource.data.userId is string && request.resource.data.userId.size() > 0;
+      allow read: if isAdmin() || (
+        request.auth != null && resource.data.userId == request.auth.uid
+      ) || (
+        request.auth == null && resource.data.userId is string
+      );
+      allow update: if isAdmin() || (
+        request.auth != null && resource.data.userId == request.auth.uid
+      ) || (
+        request.auth == null && resource.data.userId is string
+      );
+      allow delete: if false;
+    }
+
+    match /platformSettings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

@@ -94,8 +94,6 @@ export async function GET(request: NextRequest) {
 
     // none worked — return richer diagnostic info
     return NextResponse.json({ error: 'No available audio sources', probes: probeResults }, { status: 503 });
-
-    return NextResponse.json({ error: 'No available audio sources' }, { status: 503 });
   } catch (err) {
     console.error('proxy-audio error', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

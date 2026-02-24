@@ -13,6 +13,7 @@ export default function QuranPage() {
   const [searchSurah, setSearchSurah] = useState("");
   const [userLanguage, setUserLanguage] = useState<SupportedLanguage>("ar");
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [currentVerse, setCurrentVerse] = useState(1);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [attemptLog, setAttemptLog] = useState<string[]>([]);
@@ -82,15 +83,16 @@ export default function QuranPage() {
         audioRef.current = null;
       }
       setIsPlaying(false);
+      setIsLoadingAudio(false);
       return;
     }
 
     const surahNumber = currentSurah.number;
-    const surahPadded = surahNumber.toString().padStart(3, '0');
-    const surahPaddedLong = surahNumber.toString().padStart(2, '0');
     
     // Get candidate sources from centralized library
     const audioSources = getAudioSources(currentReciter.id, surahNumber);
+    // Add proxy API as final fallback
+    audioSources.push(`/api/proxy-audio?surah=${surahNumber}&reciter=${currentReciter.id}`);
 
     // create fresh audio element and store in ref
     if (audioRef.current) {
@@ -99,7 +101,9 @@ export default function QuranPage() {
       audioRef.current = null;
     }
     audioRef.current = new Audio();
-    audioRef.current.crossOrigin = "anonymous";
+    // Do NOT set crossOrigin="anonymous" — many Quran CDNs don't send CORS headers,
+    // which causes the browser to block the audio. We only need to play, not process.
+    setIsLoadingAudio(true);
 
     let currentSourceIndex = 0;
     let loadAttempts = 0;
@@ -132,6 +136,7 @@ export default function QuranPage() {
         const handleCanPlay = () => {
           clearTimeout(timeout);
           console.log(`✅ تم تحميل الصوت! جاري التشغيل...`);
+          setIsLoadingAudio(false);
           audio.play()
             .then(() => {
               console.log(`✅ بدأ التشغيل بنجاح`);
@@ -167,6 +172,7 @@ export default function QuranPage() {
       } else {
         // جميع المصادر فشلت
         setIsPlaying(false);
+        setIsLoadingAudio(false);
         console.error(`❌ فشل تحميل الصوت من جميع المصادر`);
         setAttemptLog(prev => [...prev, `All sources failed: ${audioSources.join(', ')}`]);
         
@@ -243,6 +249,7 @@ Suggested solutions:
       audioRef.current.onended = () => {
         console.log(`✅ انتهى التشغيل`);
         setIsPlaying(false);
+        setIsLoadingAudio(false);
         try { audioRef.current!.src = ""; } catch (e) {}
         audioRef.current = null;
       };
@@ -456,14 +463,15 @@ Suggested solutions:
                           fontSize: "16px",
                           fontWeight: "bold",
                           color: "white",
-                          backgroundColor: isPlaying ? "#e74c3c" : "#27ae60",
+                          backgroundColor: isPlaying ? "#e74c3c" : isLoadingAudio ? "#f39c12" : "#27ae60",
                           border: "none",
                           borderRadius: "6px",
-                          cursor: "pointer",
+                          cursor: isLoadingAudio ? "wait" : "pointer",
                           transition: "all 0.3s",
                         }}
+                        disabled={isLoadingAudio && !isPlaying}
                       >
-                        {isPlaying ? "⏸ توقف" : "▶️ استمع"}
+                        {isPlaying ? "⏸ توقف" : isLoadingAudio ? "⏳ جاري التحميل..." : "▶️ استمع"}
                       </button>
                       
                       {/* Test Sound Button */}
