@@ -43,7 +43,7 @@ export function getAudioSources(reciterId: string, surahNumber: number): string[
   // 4) QuranCDN style (some servers host with 0-prefixed folder)
   sources.push(`https://audio.qurancdn.com/quran_audio/mp3/0${surah}.mp3`);
 
-  // 5) Generic archive.org fallback for Afasy
+  // 5) For non-Afasy reciters, add Afasy as a cross-reciter fallback (widely available)
   if (reciterId !== 'afasy') {
     sources.push(`https://cdn.islamic.network/quran/audio-surah/128/ar.alafasy/${surahNum}.mp3`);
   }
