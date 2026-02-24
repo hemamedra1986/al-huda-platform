@@ -13,10 +13,17 @@ import {
 } from "@/app/lib/services/voiceRoomService";
 import { detectUserLanguage, SupportedLanguage } from "@/app/lib/services/languageDetector";
 import { translateText } from "@/app/lib/services/advancedTranslationService";
+import {
+  createVoiceCallNotification,
+  updateVoiceCallStatus,
+} from "@/app/lib/services/firestoreService";
+import { getOrCreateGuestSession } from "@/app/lib/services/guestSessionService";
 
 export default function VoicePage() {
   const [rooms, setRooms] = useState<VoiceRoom[]>([]);
   const [activeRoom, setActiveRoom] = useState<VoiceRoom | null>(null);
+  const [activeCallId, setActiveCallId] = useState<string | null>(null);
+  const [userId, setUserId] = useState("");
   const [userLanguage, setUserLanguage] = useState<SupportedLanguage>("ar");
   const [isMuted, setIsMuted] = useState(false);
   const [audioQuality, setAudioQuality] = useState<keyof typeof audioQualitySettings>('normal');
@@ -35,6 +42,9 @@ export default function VoicePage() {
     };
     initLocation();
 
+    const guest = getOrCreateGuestSession();
+    setUserId(guest.userId);
+
     // محاكاة غرف صوتية متاحة
     const mockRooms = [
       createVoiceRoom('🌙 درس الليل الحي', 'درس ديني مباشر كل ليلة', 'الشيخ أحمد'),
@@ -46,13 +56,35 @@ export default function VoicePage() {
     setRooms(mockRooms);
   }, []);
 
-  const handleJoinRoom = (room: VoiceRoom) => {
+  const handleJoinRoom = async (room: VoiceRoom) => {
     setActiveRoom(room);
     setConnectionStatus('connecting');
     setTimeout(() => setConnectionStatus('connected'), 1500);
+
+    // Notify admin via Firestore in real-time
+    try {
+      const guestId = userId || getOrCreateGuestSession().userId;
+      const docRef = await createVoiceCallNotification({
+        userId: guestId,
+        roomName: room.name,
+        roomDescription: room.description,
+      });
+      setActiveCallId(docRef.id);
+    } catch (err) {
+      // Non-critical: continue even if Firestore notification fails
+      console.warn("Could not notify admin of voice call:", err);
+    }
   };
 
-  const handleLeaveRoom = () => {
+  const handleLeaveRoom = async () => {
+    if (activeCallId) {
+      try {
+        await updateVoiceCallStatus(activeCallId, "ended");
+      } catch (err) {
+        console.warn("Could not update voice call status:", err);
+      }
+      setActiveCallId(null);
+    }
     setActiveRoom(null);
     setConnectionStatus('disconnected');
     setRecordingTime(0);
@@ -62,7 +94,7 @@ export default function VoicePage() {
     setIsMuted(!isMuted);
   };
 
-  const handleCreateRoom = () => {
+  const handleCreateRoom = async () => {
     if (newRoomName.trim()) {
       const newRoom = createVoiceRoom(newRoomName, 'غرفة صوتية جديدة', 'أنت');
       setRooms([...rooms, newRoom]);
