@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import PlatformSettingsProvider from "@/app/components/PlatformSettingsProvider";
+import WhatsAppChat from "@/app/components/WhatsAppChat";
+import TidioChat from "@/app/components/TidioChat";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,6 +31,8 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <PlatformSettingsProvider>{children}</PlatformSettingsProvider>
+        <WhatsAppChat />
+        <TidioChat />
       </body>
     </html>
   );
